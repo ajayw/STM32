@@ -1,0 +1,261 @@
+#include "WS2812B.h"
+#include "Delay.h"
+
+void RGB_Init(void)
+{
+ GPIO_InitTypeDef  GPIO_InitStructure;						//实例化对象
+ RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);	 	//使能PB端口时钟
+ GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;				 	//LED0-->PB.0 端口配置
+ GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; 		 	//推挽输出
+ GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;		 	//IO口速度为50MHz
+ GPIO_Init(GPIOB, &GPIO_InitStructure);					 	//根据设定参数初始化GPIOB.0
+ GPIO_SetBits(GPIOB,GPIO_Pin_0);						 	//PB.0 输出高
+}
+/**
+ * 颜色顺序为绿红蓝:0x00 00 00(00~ff)
+ * 
+*/
+
+//彩虹颜色箭头
+uint32_t Rainbow_data[40] = {
+	0X000F00,0X030F00,0X0C0C00,0X0D0000,0X0A000A,0X00003F,0X000F0F,0X000F02,
+	0X000F00,0X030F00,0X0C0C00,0X0D0000,0X0A000A,0X00003F,0X000F0F,0X000F02,
+	0X000F00,0X030F00,0X0C0C00,0X0D0000,0X0A000A,0X00003F,0X000F0F,0X000F02,
+	0X000F00,0X030F00,0X0C0C00,0X0D0000,0X0A000A,0X00003F,0X000F0F,0X000F02,
+	0X000F00,0X030F00,0X0C0C00,0X0D0000,0X0A000A,0X00003F,0X000F0F,0X000F02,
+};
+
+//右转箭头，打开车灯
+uint32_t Right_data[40] = {
+	0X0F1F00,0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000600,0X000600,0X000000,0X0F1F00,
+	0X0F1F00,0X000500,0X000500,0X000500,0X000500,0X000500,0X000500,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000500,0X000500,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X0F1F00 
+};
+
+//右转箭头，关闭车灯
+uint32_t Right_data1[40] = {
+	0X000000,0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000600,0X000600,0X000000,0X000000,
+	0X000000,0X000500,0X000500,0X000500,0X000500,0X000500,0X000500,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000500,0X000500,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000 
+};
+
+//关闭箭头，但保留车灯
+uint32_t OFF_arrow_data[40] = {
+	0X0F1F00,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X0F1F00 
+};
+
+//左转箭头，打开车灯
+uint32_t Left_data[40] = {
+	0X0F1F00,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000500,0X000500,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000500,0X000500,0X000500,0X000500,0X000500,0X000500,0X0F1F00,
+	0X0F1F00,0X000000,0X000500,0X000500,0X000000,0X000000,0X000000,0X0F1F00,
+	0X0F1F00,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000,0X0F1F00 
+};
+//左转箭头，关闭车灯
+uint32_t Left_data1[40] = {
+	0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000500,0X000500,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000500,0X000500,0X000500,0X000500,0X000500,0X000500,0X000000,
+	0X000000,0X000000,0X000500,0X000500,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000500,0X000000,0X000000,0X000000,0X000000
+};
+
+//关闭所有灯光
+uint32_t OFF_data[40] = {
+	0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,
+	0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000,0X000000 
+};
+
+//避障模式，青色灯光
+uint32_t cyan_data[40] = {
+	0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,
+	0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,
+	0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,
+	0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,
+	0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A,0X0A000A 
+};
+
+//寻迹模式，橙色灯光
+uint32_t orange_data[40] = {
+	0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,
+	0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,
+	0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,
+	0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,
+	0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00,0X030F00 
+};
+
+//跟随模式，粉色灯光
+uint32_t Follow_data[40] = {
+	0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,
+	0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,
+	0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,
+	0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,
+	0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02,0X000F02
+};
+
+void delay_us(u32 nus){        		//延时程序n为1时大概延时时间为370ns左右
+	while(nus--);
+}
+
+void send_code(uint32_t *sdata){    //发送亮度数据
+	uint32_t n = 0,m = 0;
+	for(uint8_t x = 0;x < 40;x++){  //发送18字节数据；18 = 一个灯3字节数据*6个灯
+		n = sdata[x];
+		for(uint8_t y = 0;y < 24;y++){
+			m = ((n<<y)&0x800000);
+			if(m){
+				RGB_PIN = 1;        //灯的控制脚位设置为输出高
+				delay_us(7);        
+				RGB_PIN = 0;
+				delay_us(1);    	//灯的控制脚位设置为输出低
+			}else{
+				RGB_PIN = 1;
+				delay_us(1);
+				RGB_PIN = 0;
+				delay_us(7);
+			}
+		}
+	}
+}
+
+//关闭所有灯光
+void OFF_RGB(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    			//发送数据前发送300us以上的复位数据
+	send_code(&OFF_data[0]);
+	Delay_us(310);	    
+	send_code(&OFF_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+ 
+//左转开车灯 
+void Left_arrow(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Left_data[0]);
+	Delay_us(310);	    
+	send_code(&Left_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//左转关车灯
+void Left_arrow_OFF_LIGHT(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Left_data1[0]);
+	Delay_us(310);	    
+	send_code(&Left_data1[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+ 
+//右转开车灯
+void Right_arrow(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Right_data[0]);
+	Delay_us(310);	    
+	send_code(&Right_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//右转关车灯
+void Right_arrow_OFF_LIGHT(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Right_data1[0]);
+	Delay_us(310);	    
+	send_code(&Right_data1[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//关闭转向灯，开车灯
+void on_the_headlights(void)	//关闭方向灯，保留照明灯
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&OFF_arrow_data[0]);
+	Delay_us(310);	    
+	send_code(&OFF_arrow_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//彩虹灯
+void Rainbow_mbp(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Rainbow_data[0]);
+	Delay_us(310);	    
+	send_code(&Rainbow_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//避障模式灯光
+void OA_mbp(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&cyan_data[0]);
+	Delay_us(310);	    
+	send_code(&cyan_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//寻迹模式灯光
+void tracking_mbp(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&orange_data[0]);
+	Delay_us(310);	    
+	send_code(&orange_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
+
+//跟随模式灯光
+void Follow_mbp(void)
+{
+	RGB_PIN = 0;
+	Delay_us(310);	    //发送数据前发送300us以上的复位数据
+	send_code(&Follow_data[0]);
+	Delay_us(310);	    
+	send_code(&Follow_data[0]);        //控制灯的数据发送两次以防其他影响
+	RGB_PIN = 0;
+	Delay_ms(310);        
+	RGB_PIN = 1; 
+}
